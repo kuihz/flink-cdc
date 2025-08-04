@@ -17,6 +17,9 @@
 
 package org.apache.flink.cdc.connectors.mysql.table;
 
+import io.debezium.connector.mysql.SourceInfo;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.flink.cdc.connectors.mysql.utils.OpTypeConv;
 import org.apache.flink.cdc.debezium.table.MetadataConverter;
 import org.apache.flink.cdc.debezium.table.RowDataMetadataConverter;
 import org.apache.flink.table.api.DataTypes;
@@ -30,9 +33,13 @@ import io.debezium.data.Envelope;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
-/** Defines the supported metadata columns for {@link MySqlTableSource}. */
+/**
+ * Defines the supported metadata columns for {@link MySqlTableSource}.
+ */
 public enum MySqlReadableMetadata {
-    /** Name of the table that contain the row. */
+    /**
+     * Name of the table that contain the row.
+     */
     TABLE_NAME(
             "table_name",
             DataTypes.STRING().notNull(),
@@ -48,7 +55,9 @@ public enum MySqlReadableMetadata {
                 }
             }),
 
-    /** Name of the database that contain the row. */
+    /**
+     * Name of the database that contain the row.
+     */
     DATABASE_NAME(
             "database_name",
             DataTypes.STRING().notNull(),
@@ -69,7 +78,7 @@ public enum MySqlReadableMetadata {
      * snapshot of the table instead of the binlog, the value is always 0.
      */
     OP_TS(
-            "op_ts",
+            "_op_ts",
             DataTypes.TIMESTAMP_LTZ(3).notNull(),
             new MetadataConverter() {
                 private static final long serialVersionUID = 1L;
@@ -88,7 +97,7 @@ public enum MySqlReadableMetadata {
      * message, '-U' means UPDATE_BEFORE message and '+U' means UPDATE_AFTER message
      */
     ROW_KIND(
-            "row_kind",
+            "_row_kind",
             DataTypes.STRING().notNull(),
             new RowDataMetadataConverter() {
                 private static final long serialVersionUID = 1L;
@@ -100,8 +109,62 @@ public enum MySqlReadableMetadata {
 
                 @Override
                 public Object read(SourceRecord record) {
+                    Struct value = (Struct) record.value();
+                    return OpTypeConv.convMysqlOpTypeToFlinkOpType(value.getString("op"));
+
+//                    throw new UnsupportedOperationException(
+//                            "Please call read(RowData rowData) method instead.");
+                }
+            }),
+
+    // 新增binlog同步的时间戳字段
+    SYNC_TS(
+            "_sync_ts",
+            DataTypes.TIMESTAMP_LTZ(3).notNull(),
+            new RowDataMetadataConverter() {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public Object read(RowData rowData) {
                     throw new UnsupportedOperationException(
-                            "Please call read(RowData rowData) method instead.");
+                            "Please call read(SourceRecord record) method instead.");
+                }
+
+                @Override
+                public Object read(SourceRecord record) {
+                    Struct value = (Struct) record.value();
+                    return value.getInt64(AbstractSourceInfo.TIMESTAMP_KEY);
+//                    return TimestampData.fromEpochMillis(
+//                            (Long) value.get(AbstractSourceInfo.TIMESTAMP_KEY));
+
+                }
+            }),
+    // 新增binlog文件+pos记录唯一行
+    FILE_POS(
+            "_file_pos",
+            DataTypes.STRING().notNull(),
+            new RowDataMetadataConverter() {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public Object read(RowData rowData) {
+                    throw new UnsupportedOperationException(
+                            "Please call read(SourceRecord record) method instead.");
+                }
+
+                @Override
+                public Object read(SourceRecord record) {
+                    Struct messageStruct = (Struct) record.value();
+                    Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
+                    // 获取binlog文件名和位置,如：file=mysql-bin.000010, pos=528879，返回000010_528879
+                    String fileName = sourceStruct.getString(SourceInfo.BINLOG_FILENAME_OFFSET_KEY);
+                    if (StringUtils.isNotBlank(fileName)) {
+                        return fileName.split("\\.")[1]
+                                + "_"
+                                + sourceStruct.get(SourceInfo.BINLOG_POSITION_OFFSET_KEY);
+                    }
+                    return null;
+
                 }
             });
 

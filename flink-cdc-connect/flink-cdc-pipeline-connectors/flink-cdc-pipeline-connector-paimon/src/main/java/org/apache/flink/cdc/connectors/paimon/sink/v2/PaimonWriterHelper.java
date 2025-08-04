@@ -194,19 +194,21 @@ public class PaimonWriterHelper {
             case UPDATE:
             case REPLACE:
                 {
+                    // update时不需要before数据，并且使用insert
+//                    fullGenericRows.add(
+//                            convertRecordDataToGenericRow(
+//                                    dataChangeEvent.before(), fieldGetters, RowKind.UPDATE_BEFORE));
                     fullGenericRows.add(
                             convertRecordDataToGenericRow(
-                                    dataChangeEvent.before(), fieldGetters, RowKind.UPDATE_BEFORE));
-                    fullGenericRows.add(
-                            convertRecordDataToGenericRow(
-                                    dataChangeEvent.after(), fieldGetters, RowKind.UPDATE_AFTER));
+                                    dataChangeEvent.after(), fieldGetters, RowKind.INSERT));
                     break;
                 }
             case DELETE:
+            // delete数据当作insert写入
                 {
                     fullGenericRows.add(
                             convertRecordDataToGenericRow(
-                                    dataChangeEvent.before(), fieldGetters, RowKind.DELETE));
+                                    dataChangeEvent.before(), fieldGetters, RowKind.INSERT));
                     break;
                 }
             default:

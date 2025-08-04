@@ -23,29 +23,29 @@ import org.apache.flink.cdc.common.types.DataTypes;
 
 import java.util.Map;
 
-/** A {@link SupportedMetadataColumn} for op_ts. */
-public class OpTsMetadataColumn implements SupportedMetadataColumn {
+/** A {@link SupportedMetadataColumn} for _file_pos. */
+public class FilePosMetadataColumn implements SupportedMetadataColumn {
 
     @Override
     public String getName() {
-        return "_op_ts";
+        return "_file_pos";
     }
 
     @Override
     public DataType getType() {
-        return DataTypes.BIGINT().notNull();
+        return DataTypes.STRING().nullable();
     }
 
     @Override
     public Class<?> getJavaClass() {
-        return Long.class;
+        return String.class;
     }
 
     @Override
     public Object read(Map<String, String> metadata) {
         if (metadata.containsKey(getName())) {
-            return Long.parseLong(metadata.get(getName()));
+            return metadata.get(getName());
         }
-        throw new IllegalArgumentException("_op_ts doesn't exist in the metadata: " + metadata);
+        throw new IllegalArgumentException("_file_pos doesn't exist in the metadata: " + metadata);
     }
 }

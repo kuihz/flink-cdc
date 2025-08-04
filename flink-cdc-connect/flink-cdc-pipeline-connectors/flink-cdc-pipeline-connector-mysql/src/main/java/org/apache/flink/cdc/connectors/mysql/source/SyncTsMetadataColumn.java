@@ -23,17 +23,17 @@ import org.apache.flink.cdc.common.types.DataTypes;
 
 import java.util.Map;
 
-/** A {@link SupportedMetadataColumn} for op_ts. */
-public class OpTsMetadataColumn implements SupportedMetadataColumn {
+/** A {@link SupportedMetadataColumn} for _sync_ts. */
+public class SyncTsMetadataColumn implements SupportedMetadataColumn {
 
     @Override
     public String getName() {
-        return "_op_ts";
+        return "_sync_ts";
     }
 
     @Override
     public DataType getType() {
-        return DataTypes.BIGINT().notNull();
+        return DataTypes.BIGINT().nullable();
     }
 
     @Override
@@ -46,6 +46,6 @@ public class OpTsMetadataColumn implements SupportedMetadataColumn {
         if (metadata.containsKey(getName())) {
             return Long.parseLong(metadata.get(getName()));
         }
-        throw new IllegalArgumentException("_op_ts doesn't exist in the metadata: " + metadata);
+        throw new IllegalArgumentException("_sync_ts doesn't exist in the metadata: " + metadata);
     }
 }

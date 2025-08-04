@@ -36,7 +36,9 @@ import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A {@link DataSource} for mysql cdc connector. */
+/**
+ * A {@link DataSource} for mysql cdc connector.
+ */
 @Internal
 public class MySqlDataSource implements DataSource {
 
@@ -97,7 +99,11 @@ public class MySqlDataSource implements DataSource {
 
     @Override
     public SupportedMetadataColumn[] supportedMetadataColumns() {
-        return new SupportedMetadataColumn[] {new OpTsMetadataColumn()};
+        return new SupportedMetadataColumn[]{
+                new OpTsMetadataColumn(),
+                new RowKindMetadataColumn(),
+                new SyncTsMetadataColumn(),
+                new FilePosMetadataColumn()};
     }
 
     @Override
