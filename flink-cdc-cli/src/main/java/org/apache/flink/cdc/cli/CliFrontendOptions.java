@@ -22,6 +22,12 @@ import org.apache.commons.cli.Options;
 
 /** Command line argument options for {@link CliFrontend}. */
 public class CliFrontendOptions {
+    public static final Option CDC_CONFIG =
+            Option.builder()
+                    .longOpt("cdc-config")
+                    .hasArg()
+                    .desc("content of cdc-config yaml")
+                    .build();
     public static final Option FLINK_HOME =
             Option.builder()
                     .longOpt("flink-home")

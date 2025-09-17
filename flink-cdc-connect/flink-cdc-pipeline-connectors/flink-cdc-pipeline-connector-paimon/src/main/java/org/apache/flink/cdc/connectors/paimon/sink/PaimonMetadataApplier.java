@@ -17,6 +17,7 @@
 
 package org.apache.flink.cdc.connectors.paimon.sink;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.cdc.common.event.AddColumnEvent;
 import org.apache.flink.cdc.common.event.AlterColumnTypeEvent;
 import org.apache.flink.cdc.common.event.CreateTableEvent;
@@ -183,13 +184,24 @@ public class PaimonMetadataApplier implements MetadataApplier {
             } else if (schema.partitionKeys() != null && !schema.partitionKeys().isEmpty()) {
                 partitionKeys.addAll(schema.partitionKeys());
             }
-            for (String partitionColumn : partitionKeys) {
-                if (!primaryKeys.contains(partitionColumn)) {
-                    primaryKeys.add(partitionColumn);
+//            for (String partitionColumn : partitionKeys) {
+//                if (!primaryKeys.contains(partitionColumn)) {
+//                    primaryKeys.add(partitionColumn);
+//                }
+//            }
+            if (StringUtils.isNotBlank(tableOptions.get("bucket-keys"))) {
+                LOG.info("bucket-keys: {}", tableOptions.get("bucket-keys"));
+            } else {
+                if (!primaryKeys.isEmpty()) {
+                    // for primary-key table, we set the primary-keys as bucket keys.
+                    tableOptions.put("bucket-key", StringUtils.join(primaryKeys, ","));
+                } else {
+                    // for non-primary-key table, we set all columns as bucket keys.
+                    tableOptions.put("bucket-key", StringUtils.join(schema.getColumnNames(), ","));
                 }
             }
             builder.partitionKeys(partitionKeys)
-                    .primaryKey(primaryKeys)
+//                    .primaryKey(primaryKeys)
                     .comment(schema.comment())
                     .options(tableOptions)
                     .options(schema.options());

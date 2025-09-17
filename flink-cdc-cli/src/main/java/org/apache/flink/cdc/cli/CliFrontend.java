@@ -37,11 +37,15 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+import org.apache.hadoop.fs.FileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -93,7 +97,9 @@ public class CliFrontend {
                     "Missing pipeline definition file path in arguments. ");
         }
 
-        Path pipelineDefPath = new Path(unparsedArgs.get(0));
+//        Path pipelineDefPath = new Path(unparsedArgs.get(0));
+        String cdcConfig = commandLine.getOptionValue(CliFrontendOptions.CDC_CONFIG);
+        java.nio.file.Path pipelineDefPath = getPipelineDefPath(unparsedArgs.get(0), cdcConfig);
         // Take the first unparsed argument as the pipeline definition file
         LOG.info("Real Path pipelineDefPath {}", pipelineDefPath);
         // Global pipeline configuration
@@ -125,7 +131,7 @@ public class CliFrontend {
         // Build executor
         return new CliExecutor(
                 commandLine,
-                pipelineDefPath,
+                (Path) pipelineDefPath,
                 flinkConfig,
                 globalPipelineConfig,
                 additionalJars,
@@ -227,6 +233,64 @@ public class CliFrontend {
                 "Cannot find Flink home from either command line arguments \"--flink-home\" "
                         + "or the environment variable \"FLINK_HOME\". "
                         + "Please make sure Flink home is properly set. ");
+    }
+
+    public static String processYaml(String s1) {
+//        LOG.info("---------before processYaml------------ "+s1.replaceAll("<br>","\n"));
+        StringBuilder result = new StringBuilder();
+        String[] lines = s1.split("<br>");
+        boolean addSpaces = false;
+
+        for (String line : lines) {
+            if(line.trim().startsWith("route:") || line.trim().startsWith("transform:")) {
+                addSpaces = true;
+                result.append(line).append("\n");
+            } else if (addSpaces && line.startsWith(" ") && !line.trim().startsWith("-")) {
+                result.append("  ").append(line).append("\n");
+            } else if (addSpaces && line.startsWith(" ")) {
+                result.append(line).append("\n");
+            } else {
+                addSpaces = false;
+                result.append(line).append("\n");
+            }
+        }
+
+        // Remove the last newline character if the original string didn't end with a newline
+        if (!s1.endsWith("\n") && result.length() > 0) {
+            result.setLength(result.length() - 1);
+        }
+
+        return result.toString();
+    }
+
+    public static java.nio.file.Path getPipelineDefPath(String filePath,String cdcConfig) throws IOException {
+        if(!org.apache.commons.lang3.StringUtils.isBlank(cdcConfig)){
+            LOG.info("---------getPipelineDefPath from cdcConfig------------ ");
+            cdcConfig=processYaml(cdcConfig);
+            String tempFileName = "cdc_config_" + System.currentTimeMillis() ;
+            java.nio.file.Path tempFile = Files.createTempFile(tempFileName, ".yaml");
+            java.nio.file.Files.write(tempFile, cdcConfig.getBytes());
+            return tempFile;
+        }
+        if (filePath.startsWith("hdfs://")) {
+            LOG.info("---------getPipelineDefPath from hdfs------------ ");
+            org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+            FileSystem fs = FileSystem.get(conf);
+            org.apache.hadoop.fs.Path hdfsPath = new org.apache.hadoop.fs.Path(filePath);
+
+            // Generate a unique temporary file name
+            String tempFileName = "cdc_hdfs_" + System.currentTimeMillis() + "_" + hdfsPath.getName();
+            java.nio.file.Path tempFilePath = Files.createTempFile(tempFileName, null);
+
+            // Copy the file from HDFS to the local temporary path
+            fs.copyToLocalFile(hdfsPath, new org.apache.hadoop.fs.Path(tempFilePath.toString()));
+
+            return tempFilePath;
+        } else {
+            LOG.info("---------getPipelineDefPath from local------------ ");
+            // If the file path doesn't start with "hdfs://", assume it's a local file path
+            return Paths.get(filePath);
+        }
     }
 
     private static Configuration getGlobalConfig(CommandLine commandLine) throws Exception {

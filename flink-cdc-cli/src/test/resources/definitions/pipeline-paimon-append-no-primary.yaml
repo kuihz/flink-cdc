@@ -1,0 +1,62 @@
+################################################################################
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+source:
+  type: mysql
+  hostname: 192.168.225.16
+  port: 3306
+  username: root
+  password: 12345
+  tables: ods.t_ray_5
+  server-id: 2481-2484
+  server-time-zone: Asia/Shanghai
+  scan.startup.mode: initial
+  scan.startup.timestamp-millis: 1753324200000
+  scan.binlog.newly-added-table.enabled: true
+  scan.incremental.snapshot.chunk.key-column: ods.t_ray_5:id
+  include-comments.enabled: true
+  treat-tinyint1-as-boolean.enabled: false
+  jdbc.properties.useSSL: false
+  jdbc.properties.tinyInt1isBit: false
+  scan.incremental.snapshot.chunk.size: 8192
+  metadata.list: _op_ts,_sync_ts,_file_pos,_row_kind
+sink:
+  type: paimon
+  name: ods_m2p_t_ods_t_ray_1_dt
+  table.properties.file.format: parquet
+  catalog.properties.metastore: filesystem
+  catalog.properties.warehouse: file:///D:/data/warehouse
+  table.properties.write-mode: append-only
+  table.properties.changelog-producer: none
+  table.properties.write-buffer-size: 512m
+  table.properties.write-buffer-spillable: true
+  table.properties.num-sorted-run.stop-trigger: 2147483647
+  table.properties.sort-spill-threshold: 2
+  table.properties.lookup-wait: false
+  table.properties.changelog.time-retained: 1 d
+  table.properties.bucket: 2
+  table.properties.snapshot.num-retained.min: 20
+  table.properties.snapshot.time-retained: 1 d
+route:
+  - source-table: ods.t_ray_5
+    sink-table: uld_ods.ods_m2p_t_ods_t_ray_1_dt
+transform:
+  - source-table: ods.t_ray_5
+    projection: \*, _op_ts,_sync_ts,_file_pos,_row_kind, DATE_FORMAT(update_datetime, 'yyyyMMdd') as dt
+    partition-keys: dt
+pipeline:
+  name: ods-cdc-test
+  parallelism: 1
